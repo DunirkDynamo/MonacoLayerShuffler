@@ -38,7 +38,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler -m monaco_shuffler.main
+          pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler src/monaco_shuffler/main.py
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
