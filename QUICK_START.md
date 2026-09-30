@@ -57,15 +57,8 @@ If you installed the package in editable mode, launch the GUI with:
 python -m monaco_shuffler.main
 ```
 
-The app starts empty if you do not pass a file.
-
-You can also open a specific file at startup:
-
-```bash
-python -m monaco_shuffler.main --file PretendData.txt
-```
-
-If the file path is wrong or the file does not exist, the app will show an error instead of guessing a fallback file.
+The app prompts for an 8-digit MRN and a plan name, then resolves the matching
+plan file from the configured database path in code.
 
 You can also print the current version:
 
@@ -86,7 +79,7 @@ python -m monaco_shuffler.main --version
 Then build a Windows executable with PyInstaller:
 
 ```bash
-pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler -m monaco_shuffler.main
+pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler src/monaco_shuffler/main.py
 ```
 
 The executable will be created in the `dist` folder.

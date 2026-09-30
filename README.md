@@ -6,7 +6,8 @@ Monaco Shuffler is a small Python desktop app for previewing and saving reordere
 
 This app focuses on a simple, explicit workflow:
 
-- finds the structure list inside a larger text file
+- prompts for an MRN and plan name
+- resolves the matching plan file from the configured database path
 - validates the candidate list before loading it
 - shows each structure with its current layer index and CSV payload
 - lets you choose a new destination index for each structure
@@ -52,13 +53,8 @@ you can launch the app with:
 python -m monaco_shuffler.main
 ```
 
-If you want to open a specific file:
-
-```bash
-python -m monaco_shuffler.main --file PretendData.txt
-```
-
-If the file path is wrong or the file does not exist, the app stops and shows an error instead of loading sample data.
+The app prompts for an 8-digit MRN and a plan name, then resolves the matching
+plan file from the configured database path in code.
 
 To print the current tagged version from the command line:
 
@@ -77,7 +73,7 @@ pip install -e .[build]
 Then build a Windows executable with PyInstaller:
 
 ```bash
-pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler -m monaco_shuffler.main
+pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler src/monaco_shuffler/main.py
 ```
 
 The finished executable will be created under `dist/`.

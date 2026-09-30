@@ -4,19 +4,17 @@ This module provides a glassmorphism-inspired desktop window with stronger
 color accents, layered cards, and the same preview/write-back workflow.
 """
 
-from pathlib import Path
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
-    QFileDialog,
     QFrame,
     QGraphicsDropShadowEffect,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -32,6 +30,9 @@ from .core import (
     StructureRecord,
     build_preview_order,
     load_structure_file,
+    normalize_mrn,
+    resolve_mrn_folder,
+    resolve_plan_file,
     write_structure_document,
 )
 
@@ -112,6 +113,8 @@ class MonacoShufflerApp(QMainWindow):
         self.row_widgets = []
         self.source_path = source_path
         self.document = initial_document
+        self.current_mrn = None
+        self.current_plan_name = None
 
         self.setWindowTitle("Monaco Shuffler")
         self.resize(1180, 760)
@@ -141,12 +144,12 @@ class MonacoShufflerApp(QMainWindow):
         title_layout.addWidget(title)
 
         meta_row = QHBoxLayout()
-        self.file_label = QLabel("No file loaded")
+        self.file_label = QLabel("No plan loaded")
         self.file_label.setObjectName("FileLabel")
-        self.status_label = QLabel("Load a Monaco-style file to begin.")
+        self.status_label = QLabel("Enter an MRN and plan name to begin.")
         self.status_label.setObjectName("StatusLabel")
-        self.open_button = QPushButton("Open File")
-        self.open_button.clicked.connect(self.open_file)
+        self.open_button = QPushButton("Open")
+        self.open_button.clicked.connect(self.load_plan_from_database)
 
         meta_row.addWidget(self.file_label)
         meta_row.addItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
@@ -353,10 +356,11 @@ class MonacoShufflerApp(QMainWindow):
         self.confirm_button.setObjectName("PrimaryButton")
         self.apply_button.setObjectName("PrimaryButton")
 
-    def format_source_path(self, source_path):
-        if source_path is None:
-            return "No file loaded"
-        return str(source_path)
+    def format_source_label(self):
+        if self.current_mrn is None or self.current_plan_name is None:
+            return "No plan loaded"
+
+        return f"MRN {self.current_mrn} / Plan {self.current_plan_name}"
 
     def set_status(self, text):
         self.status_label.setText(text)
@@ -367,7 +371,7 @@ class MonacoShufflerApp(QMainWindow):
     def set_records(self, records, document=None):
         self.records = list(records)
         self.document = document
-        self.set_source_label(self.format_source_path(self.source_path))
+        self.set_source_label(self.format_source_label())
         self.set_status(f"Loaded {len(self.records)} structures.")
         self._rebuild_table()
 
@@ -383,7 +387,7 @@ class MonacoShufflerApp(QMainWindow):
         self.row_widgets = []
 
         if not self.records:
-            placeholder = QLabel("Open a file to populate the table.")
+            placeholder = QLabel("Load a plan to populate the table.")
             placeholder.setAlignment(Qt.AlignCenter)
             placeholder.setObjectName("EmptyStateLabel")
             self.rows_layout.addWidget(placeholder)
@@ -398,26 +402,74 @@ class MonacoShufflerApp(QMainWindow):
 
         self.rows_layout.addStretch(1)
 
-    def open_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Monaco text file",
-            str(Path.cwd()),
-            "Text files (*.txt);;All files (*.*)",
-        )
-        if not file_name:
-            return
+    def _prompt_for_mrn(self):
+        while True:
+            mrn_text, accepted = QInputDialog.getText(
+                self,
+                "Load Plan",
+                "Enter the 8-digit MRN:",
+            )
+            if not accepted:
+                return None
 
-        path = Path(file_name)
+            try:
+                return normalize_mrn(mrn_text)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Invalid MRN", str(exc))
+
+    def _prompt_for_plan_name(self, mrn_folder):
+        while True:
+            plan_name, accepted = QInputDialog.getText(
+                self,
+                "Load Plan",
+                "Enter the plan name:",
+            )
+            if not accepted:
+                return None
+
+            normalized_plan_name = plan_name.strip()
+            if not normalized_plan_name:
+                QMessageBox.warning(self, "Invalid plan name", "The plan name cannot be empty.")
+                continue
+
+            try:
+                return normalized_plan_name, resolve_plan_file(mrn_folder, normalized_plan_name)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Plan not found", str(exc))
+
+    def load_plan_from_database(self):
+        while True:
+            mrn = self._prompt_for_mrn()
+            if mrn is None:
+                return False
+
+            try:
+                mrn_folder = resolve_mrn_folder(mrn)
+            except ValueError as exc:
+                QMessageBox.warning(self, "MRN not found", str(exc))
+                continue
+
+            break
+
+        plan_result = self._prompt_for_plan_name(mrn_folder)
+        if plan_result is None:
+            return False
+
+        plan_name, plan_file = plan_result
+
         try:
-            document = load_structure_file(path)
+            document = load_structure_file(plan_file)
         except ValueError as exc:
-            QMessageBox.critical(self, "Could not load file", str(exc))
-            return
+            QMessageBox.critical(self, "Could not load plan", str(exc))
+            return False
 
-        self.source_path = path
-        self.set_source_label(self.format_source_path(path))
+        self.current_mrn = mrn
+        self.current_plan_name = plan_name
+        self.source_path = plan_file
+        self.set_source_label(self.format_source_label())
         self.set_records(document.records, document)
+        self.set_status(f"Loaded MRN {mrn} plan {plan_name}.")
+        return True
 
     def _selected_targets(self):
         return [row.selected_target() for row in self.row_widgets]
@@ -441,8 +493,8 @@ class MonacoShufflerApp(QMainWindow):
         self.set_status("Dropdowns reset to the original file order.")
 
     def apply_reorder(self):
-        if not self.records:
-            QMessageBox.information(self, "Nothing to apply", "Load a file before applying a reorder.")
+        if not self.records or self.source_path is None or self.document is None:
+            QMessageBox.information(self, "Nothing to apply", "Load a plan before applying a reorder.")
             return
 
         try:
@@ -454,31 +506,18 @@ class MonacoShufflerApp(QMainWindow):
         ordered_records = sorted(adjusted_records, key=lambda record: record.original_layer)
 
         destination_path = self.source_path
-        if destination_path is None:
-            file_name, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save reordered Monaco file",
-                str(Path.cwd() / "ReorderedData.txt"),
-                "Text files (*.txt);;All files (*.*)",
-            )
-            if not file_name:
-                return
-            destination_path = Path(file_name)
-        else:
-            response = QMessageBox.question(
-                self,
-                "Overwrite file?",
-                f"This will overwrite:\n\n{destination_path}\n\nContinue?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No,
-            )
-            if response != QMessageBox.Yes:
-                return
+
+        response = QMessageBox.question(
+            self,
+            "Overwrite plan?",
+            "This will overwrite the loaded plan file. Continue?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if response != QMessageBox.Yes:
+            return
 
         try:
-            if self.document is None:
-                raise ValueError("No source document is loaded.")
-
             write_structure_document(destination_path, self.document, ordered_records)
         except OSError as exc:
             QMessageBox.critical(self, "Could not save file", str(exc))
@@ -489,4 +528,4 @@ class MonacoShufflerApp(QMainWindow):
 
         self.source_path = destination_path
         self.set_records(ordered_records, self.document)
-        self.set_status(f"Saved reordered file to {destination_path}.")
+        self.set_status(f"Saved reordered plan for MRN {self.current_mrn}.")

@@ -11,6 +11,10 @@ import csv
 from typing import Sequence, cast
 
 
+DATABASE_ROOT = Path(r"C:\GitHub\MonacoDatabase")
+PLAN_FILE_NAME = "plan"
+
+
 class StructuresNotFoundError(ValueError):
     """Raised when no valid structure list can be found in the input text."""
 
@@ -220,6 +224,54 @@ def load_structure_file(file_path: Path) -> StructureDocument:
     """Load and parse a Monaco-style structure file."""
 
     return _extract_structure_document(file_path.read_text(encoding="utf-8"))
+
+
+def normalize_mrn(mrn_text: str) -> str:
+    """Validate and normalize an MRN entered by the user."""
+
+    normalized_mrn = mrn_text.strip()
+    if len(normalized_mrn) != 8 or not normalized_mrn.isdigit():
+        raise ValueError("The MRN must be exactly 8 digits.")
+
+    return normalized_mrn
+
+
+def resolve_mrn_folder(mrn_text: str, database_root: Path = DATABASE_ROOT) -> Path:
+    """Resolve the database folder that corresponds to an MRN."""
+
+    normalized_mrn = normalize_mrn(mrn_text)
+    mrn_folder = database_root / f"1~{normalized_mrn}"
+    if not mrn_folder.is_dir():
+        raise ValueError(
+            f'Could not find the MRN folder "1~{normalized_mrn}" under {database_root}.'
+        )
+
+    return mrn_folder
+
+
+def resolve_plan_file(mrn_folder: Path, plan_name: str) -> Path:
+    """Resolve the plan file inside an MRN folder by matching the plan folder name."""
+
+    normalized_plan_name = plan_name.strip()
+    if not normalized_plan_name:
+        raise ValueError("The plan name cannot be empty.")
+
+    matching_plan_folder = None
+    for child in mrn_folder.iterdir():
+        if child.is_dir() and child.name.casefold() == normalized_plan_name.casefold():
+            matching_plan_folder = child
+            break
+
+    if matching_plan_folder is None:
+        raise ValueError(
+            f'No plan named "{normalized_plan_name}" was found under {mrn_folder}.'
+        )
+
+    plan_file = matching_plan_folder / PLAN_FILE_NAME
+    if not plan_file.is_file():
+        raise ValueError(f'The file "{PLAN_FILE_NAME}" was not found in {matching_plan_folder}.')
+
+    return plan_file
 
 
 def default_target_layers(records: Sequence[StructureRecord]) -> list[int]:

@@ -6,10 +6,10 @@ This document describes the internal structure of the `monaco_shuffler` package 
 
 ```mermaid
 flowchart LR
-    Input[Monaco-style text file] --> Main[main.py]
-    Main --> Core[core.py]
-    Core --> GUI[gui.py]
-    GUI --> Core
+    Input[MRN and plan prompt] --> Main[main.py]
+    Main --> GUI[gui.py]
+    GUI --> Core[core.py]
+    Core --> GUI
     Core --> Data[Parsed structure records]
     Data --> GUI
     Init[__init__.py] --> Main
@@ -19,8 +19,8 @@ flowchart LR
 ## Package Modules
 
 - `src/monaco_shuffler/__init__.py` exposes package version metadata.
-- `src/monaco_shuffler/main.py` starts the application, resolves the optional input file, and launches the GUI.
-- `src/monaco_shuffler/core.py` owns parsing, validation, preview ordering, and file serialization rules.
+- `src/monaco_shuffler/main.py` starts the application and launches the initial MRN/plan prompt flow.
+- `src/monaco_shuffler/core.py` owns database lookup, parsing, validation, preview ordering, and file serialization rules.
 - `src/monaco_shuffler/gui.py` renders the PySide6 window and collects user choices.
 - `src/monaco_shuffler/data/sample_layers.txt` provides bundled sample input for local use and development.
 
@@ -29,11 +29,12 @@ flowchart LR
 ### `main.py`
 
 - parses command-line arguments
-- loads the selected file through the core module
 - creates the Qt application and main window
+- asks the GUI to prompt for MRN and plan selection
 
 ### `core.py`
 
+- resolves the configured MRN folder and plan file
 - locates the structure list inside a larger file
 - validates record shape and sequential IDs
 - builds preview order from the selected destination layers
@@ -41,10 +42,11 @@ flowchart LR
 
 ### `gui.py`
 
+- prompts for MRN and plan name
 - displays the current file contents as editable rows
 - shows the original layer and the selected target layer
 - previews the reordered result before saving
-- writes the edited file and the `_OG` backup copy when saving
+- writes the edited file back to the loaded plan file when saving
 
 ### `data/`
 
@@ -54,8 +56,8 @@ flowchart LR
 ## Package Data Flow
 
 1. The app starts in `main.py`.
-2. `main.py` asks `core.py` to parse the input file.
-3. `core.py` returns validated structure records.
+2. `gui.py` prompts for MRN and plan name and asks `core.py` to resolve the hidden file path.
+3. `main.py` asks `core.py` to parse the resolved plan file.
 4. `gui.py` renders those records for user selection.
 5. `core.py` validates and serializes the selected order.
-6. `gui.py` writes the reordered file and the original backup copy.
+6. `gui.py` writes the reordered file back to the loaded plan file.
