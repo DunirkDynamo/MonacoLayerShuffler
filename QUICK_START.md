@@ -103,4 +103,5 @@ git push --tags
 ```
 
 That tag becomes the source of truth for the package version when the app is built or installed.
-Pushing the tag also updates the GitHub Pages site and uploads a fresh executable to the GitHub Release.
+Pushing the tag updates the GitHub Pages site.
+To build and publish the executable, open the repository Actions tab and run the manual release workflow with that tag.

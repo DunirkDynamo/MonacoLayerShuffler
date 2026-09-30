@@ -26,15 +26,15 @@ git push --tags
 ```
 
 When you install or build from that tagged source, the package version will be generated automatically.
-Pushing a matching release tag also updates the GitHub Pages site and publishes the Windows executable release.
+Pushing a matching release tag updates the GitHub Pages site.
+The Windows executable release is built manually from the Actions tab for a chosen release tag.
 
 ## Release automation
 
 When a tag in the form `v*.*.*` is pushed, GitHub Actions will:
 
 - update the GitHub Pages site for that release tag
-- build the Windows executable with PyInstaller
-- publish a GitHub Release with the executable attached
+- make the release tag available for a manual executable build from the Actions tab
 
 ## Project layout
 
@@ -81,6 +81,6 @@ pyinstaller --noconfirm --onefile --windowed --name MonacoShuffler -m monaco_shu
 ```
 
 The finished executable will be created under `dist/`.
-For tagged releases, the same executable is built automatically in GitHub Actions and attached to the GitHub Release.
+For tagged releases, the same executable can be built manually in GitHub Actions and attached to the GitHub Release.
 
 For a local build script that installs the build dependencies and runs PyInstaller for you, see [scripts/BUILD_EXECUTABLE.md](scripts/BUILD_EXECUTABLE.md).
