@@ -1,0 +1,24 @@
+Epidermis
+1
+Dermis
+2
+Subcutaneous Fat
+3
+Superficial Fascia
+4
+Deep Fascia
+5
+Epimysium
+6
+Biceps Brachii (Muscle)
+7
+Periosteum
+8
+Cortical Bone
+9
+Cancellous Bone
+10
+Bone Marrow
+11
+Joint Capsule
+12

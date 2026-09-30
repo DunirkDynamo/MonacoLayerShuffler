@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "setuptools-scm[toml]>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "monaco-shuffler"
+description = "Preview and reorder Monaco layer files from a small desktop GUI."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Copilot" }]
+dependencies = ["PySide6>=6.7"]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0"]
+
+[project.scripts]
+monaco-shuffler = "monaco_shuffler.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"monaco_shuffler.data" = ["*.txt"]
+
+[tool.setuptools_scm]
+write_to = "src/monaco_shuffler/_version.py"
+tag_regex = '^v(?P<version>\d+\.\d+\.\d+)$'
+version_scheme = "release-branch-semver"
+local_scheme = "node-and-date"

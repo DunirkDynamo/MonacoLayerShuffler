@@ -1,0 +1,1 @@
+"""Bundled sample data for Monaco Shuffler."""

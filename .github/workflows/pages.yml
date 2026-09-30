@@ -1,0 +1,100 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Pages content
+        run: |
+          mkdir -p site
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Monaco Shuffler</title>
+            <style>
+              :root {
+                color-scheme: dark;
+                --bg: #0b1020;
+                --panel: rgba(255,255,255,.08);
+                --border: rgba(255,255,255,.16);
+                --text: #f5f8ff;
+                --muted: #b8c3da;
+                --accent: #64b4ff;
+              }
+              body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: Arial, Helvetica, sans-serif;
+                background: radial-gradient(circle at top, #17223b, var(--bg) 55%);
+                color: var(--text);
+                display: grid;
+                place-items: center;
+              }
+              main {
+                width: min(860px, calc(100vw - 32px));
+                background: var(--panel);
+                border: 1px solid var(--border);
+                border-radius: 24px;
+                padding: 32px;
+                box-shadow: 0 24px 80px rgba(0,0,0,.35);
+              }
+              h1 { margin-top: 0; }
+              code {
+                background: rgba(255,255,255,.08);
+                padding: 0.15rem 0.35rem;
+                border-radius: 6px;
+              }
+              a { color: var(--accent); }
+              .muted { color: var(--muted); }
+            </style>
+          </head>
+          <body>
+            <main>
+              <h1>Monaco Shuffler</h1>
+              <p class="muted">GitHub Pages release site for tag <code>${GITHUB_REF_NAME}</code>.</p>
+              <p>This site updates only when a version tag matching <code>v*.*.*</code> is pushed.</p>
+              <ul>
+                <li>Desktop app: PySide6 layer shuffler</li>
+                <li>Release version: <code>${GITHUB_REF_NAME#v}</code></li>
+                <li>Repository documentation stays in README and Quick Start</li>
+              </ul>
+              <p>
+                <a href="https://github.com/${GITHUB_REPOSITORY}">View the repository</a>
+              </p>
+            </main>
+          </body>
+          </html>
+          HTML
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
