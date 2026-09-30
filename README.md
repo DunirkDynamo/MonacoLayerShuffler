@@ -52,12 +52,6 @@ you can launch the app with:
 python -m monaco_shuffler.main
 ```
 
-If you have not installed the package, use the repo launcher instead:
-
-```powershell
-.\scripts\run-app.ps1
-```
-
 If you want to open a specific file:
 
 ```bash

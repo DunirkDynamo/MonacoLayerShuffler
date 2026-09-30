@@ -57,12 +57,6 @@ If you installed the package in editable mode, launch the GUI with:
 python -m monaco_shuffler.main
 ```
 
-If you want to run straight from the repo without installing it first, use:
-
-```powershell
-.\scripts\run-app.ps1
-```
-
 The app starts empty if you do not pass a file.
 
 You can also open a specific file at startup:

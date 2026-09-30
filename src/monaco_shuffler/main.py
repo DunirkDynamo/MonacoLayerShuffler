@@ -12,9 +12,9 @@ import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtWidgets import QMessageBox
 
-from . import __version__
-from .core import load_structure_file
-from .gui import MonacoShufflerApp
+from monaco_shuffler import __version__
+from monaco_shuffler.core import load_structure_file
+from monaco_shuffler.gui import MonacoShufflerApp
 
 
 def main(argv=None) -> None:
@@ -50,8 +50,12 @@ def main(argv=None) -> None:
             )
             sys.exit(1)
 
-        records = load_structure_file(args.file)
-        window = MonacoShufflerApp(initial_records=records, source_path=args.file)
+        document = load_structure_file(args.file)
+        window = MonacoShufflerApp(
+            initial_records=document.records,
+            source_path=args.file,
+            initial_document=document,
+        )
     else:
         window = MonacoShufflerApp(initial_records=[], source_path=None)
 

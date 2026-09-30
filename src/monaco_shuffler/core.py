@@ -31,6 +31,23 @@ class StructureRecord:
     layer_fields: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class StructureDocument:
+    """Represent the original file and the extracted structure block.
+
+    Attributes:
+        records: Parsed structure records in source order.
+        source_lines: The full original file split into newline-preserving lines.
+        block_start: Zero-based index of the count line that starts the block.
+        block_end: Zero-based index of the final line in the block.
+    """
+
+    records: tuple[StructureRecord, ...]
+    source_lines: tuple[str, ...]
+    block_start: int
+    block_end: int
+
+
 def _build_layer_fields(record: StructureRecord, layer_index: int) -> tuple[str, ...]:
     """Return the stored CSV fields with the final field replaced by an index."""
 
@@ -143,10 +160,66 @@ def parse_structure_text(text: str) -> list[StructureRecord]:
     raise StructuresNotFoundError("Failed to locate structures")
 
 
-def load_structure_file(file_path: Path) -> list[StructureRecord]:
+def _extract_structure_document(text: str) -> StructureDocument:
+    """Parse the source text and capture the original file span for the list."""
+
+    source_lines = text.splitlines(keepends=True)
+    content_lines = text.splitlines()
+
+    for start in range(1, len(content_lines) - 1):
+        count_text = content_lines[start - 1].strip()
+        if not count_text.isdigit():
+            continue
+
+        count = int(count_text)
+        if count <= 0:
+            continue
+
+        records: list[StructureRecord] = []
+        valid = True
+
+        for offset in range(count):
+            record_index = start + (2 * offset)
+            record = _parse_record(content_lines, record_index)
+            if record is None:
+                valid = False
+                break
+
+            if record.original_layer != offset + 1:
+                valid = False
+                break
+
+            records.append(record)
+
+        if not valid:
+            continue
+
+        if len(records) != count:
+            continue
+
+        if records[-1].original_layer != count:
+            continue
+
+        next_record_index = start + (2 * count)
+        if _parse_record(content_lines, next_record_index) is not None:
+            continue
+
+        block_start = start - 1
+        block_end = start + (2 * count) - 1
+        return StructureDocument(
+            records=tuple(records),
+            source_lines=tuple(source_lines),
+            block_start=block_start,
+            block_end=block_end,
+        )
+
+    raise StructuresNotFoundError("Failed to locate structures")
+
+
+def load_structure_file(file_path: Path) -> StructureDocument:
     """Load and parse a Monaco-style structure file."""
 
-    return parse_structure_text(file_path.read_text(encoding="utf-8"))
+    return _extract_structure_document(file_path.read_text(encoding="utf-8"))
 
 
 def default_target_layers(records: Sequence[StructureRecord]) -> list[int]:
@@ -183,14 +256,51 @@ def build_preview_order(
     return cast(list[StructureRecord], [record for record in preview if record is not None])
 
 
-def serialize_structure_records(records: Sequence[StructureRecord]) -> str:
-    """Serialize ordered structures back into Monaco-style text."""
+def _line_ending(line: str) -> str:
+    """Return the original newline suffix for a source line."""
 
-    lines: list[str] = []
-    for record in records:
-        lines.append(record.name)
-        lines.append(",".join(_build_layer_fields(record, record.original_layer)))
-    return "\n".join(lines) + "\n"
+    return line[len(line.rstrip("\r\n")) :]
+
+
+def _serialize_structure_block(
+    document: StructureDocument, records: Sequence[StructureRecord]
+) -> list[str]:
+    """Build replacement lines for the extracted structure block.
+
+    The replacement keeps the same number of lines and preserves the original
+    line-ending style for each position in the block.
+    """
+
+    if len(records) * 2 + 1 != document.block_end - document.block_start + 1:
+        raise ValueError("The reordered records do not match the original block size.")
+
+    block_lines = document.source_lines[document.block_start : document.block_end + 1]
+    replacement_lines: list[str] = []
+
+    replacement_lines.append(block_lines[0])
+
+    for index, record in enumerate(records, start=0):
+        name_line = block_lines[1 + (2 * index)]
+        value_line = block_lines[2 + (2 * index)]
+        name_ending = _line_ending(name_line)
+        value_ending = _line_ending(value_line)
+
+        replacement_lines.append(f"{record.name}{name_ending}")
+        replacement_lines.append(",".join(_build_layer_fields(record, record.original_layer)) + value_ending)
+
+    return replacement_lines
+
+
+def render_structure_document(
+    document: StructureDocument, records: Sequence[StructureRecord]
+) -> str:
+    """Render the full file text with the updated structure block in place."""
+
+    updated_lines = list(document.source_lines)
+    updated_lines[document.block_start : document.block_end + 1] = _serialize_structure_block(
+        document, records
+    )
+    return "".join(updated_lines)
 
 
 def reindex_structure_records(records: Sequence[StructureRecord]) -> list[StructureRecord]:
@@ -225,6 +335,18 @@ def apply_target_layers(
 
 
 def write_structure_file(file_path: Path, records: Sequence[StructureRecord]) -> None:
-    """Write ordered structure records to a Monaco-style text file."""
+    """Legacy helper retained for compatibility with older call sites."""
 
-    file_path.write_text(serialize_structure_records(records), encoding="utf-8")
+    lines: list[str] = []
+    for record in records:
+        lines.append(record.name)
+        lines.append(",".join(_build_layer_fields(record, record.original_layer)))
+    file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_structure_document(
+    file_path: Path, document: StructureDocument, records: Sequence[StructureRecord]
+) -> None:
+    """Write the updated structure block back into the original file text."""
+
+    file_path.write_text(render_structure_document(document, records), encoding="utf-8")

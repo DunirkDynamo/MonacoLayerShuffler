@@ -28,6 +28,8 @@ From the repository root:
 
 If you have made source changes and want a fresh executable, rerun the script after saving your edits.
 
+The script uses `src/monaco_shuffler/main.py` as the PyInstaller entry file, so it works directly from the repo root after the build dependencies are installed.
+
 ## Build yourself vs. download a release
 
 Use the local build script when you want the executable to match your own code changes. This is the right choice if you have edited the source and want to package your updated version.

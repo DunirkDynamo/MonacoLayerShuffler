@@ -32,14 +32,8 @@ from .core import (
     StructureRecord,
     build_preview_order,
     load_structure_file,
-    write_structure_file,
+    write_structure_document,
 )
-
-
-def _og_copy_path(path: Path) -> Path:
-    """Return the sibling path used for the original backup copy."""
-
-    return path.with_name(f"{path.stem}_OG{path.suffix}")
 
 
 class GlassCard(QFrame):
@@ -112,11 +106,12 @@ class RowWidget(QFrame):
 class MonacoShufflerApp(QMainWindow):
     """Main application window."""
 
-    def __init__(self, initial_records=None, source_path=None) -> None:
+    def __init__(self, initial_records=None, source_path=None, initial_document=None) -> None:
         super().__init__()
         self.records = []
         self.row_widgets = []
         self.source_path = source_path
+        self.document = initial_document
 
         self.setWindowTitle("Monaco Shuffler")
         self.resize(1180, 760)
@@ -124,7 +119,7 @@ class MonacoShufflerApp(QMainWindow):
         self._build_ui()
         self._apply_theme()
         if initial_records is not None:
-            self.set_records(initial_records)
+            self.set_records(initial_records, initial_document)
 
     def _build_ui(self):
         central = QWidget()
@@ -369,8 +364,9 @@ class MonacoShufflerApp(QMainWindow):
     def set_source_label(self, text):
         self.file_label.setText(text)
 
-    def set_records(self, records):
+    def set_records(self, records, document=None):
         self.records = list(records)
+        self.document = document
         self.set_source_label(self.format_source_path(self.source_path))
         self.set_status(f"Loaded {len(self.records)} structures.")
         self._rebuild_table()
@@ -414,14 +410,14 @@ class MonacoShufflerApp(QMainWindow):
 
         path = Path(file_name)
         try:
-            records = load_structure_file(path)
+            document = load_structure_file(path)
         except ValueError as exc:
             QMessageBox.critical(self, "Could not load file", str(exc))
             return
 
         self.source_path = path
         self.set_source_label(self.format_source_path(path))
-        self.set_records(records)
+        self.set_records(document.records, document)
 
     def _selected_targets(self):
         return [row.selected_target() for row in self.row_widgets]
@@ -456,7 +452,6 @@ class MonacoShufflerApp(QMainWindow):
             return
 
         ordered_records = sorted(adjusted_records, key=lambda record: record.original_layer)
-        original_records = list(self.records)
 
         destination_path = self.source_path
         if destination_path is None:
@@ -481,12 +476,17 @@ class MonacoShufflerApp(QMainWindow):
                 return
 
         try:
-            write_structure_file(destination_path, ordered_records)
-            write_structure_file(_og_copy_path(destination_path), original_records)
+            if self.document is None:
+                raise ValueError("No source document is loaded.")
+
+            write_structure_document(destination_path, self.document, ordered_records)
         except OSError as exc:
+            QMessageBox.critical(self, "Could not save file", str(exc))
+            return
+        except ValueError as exc:
             QMessageBox.critical(self, "Could not save file", str(exc))
             return
 
         self.source_path = destination_path
-        self.set_records(ordered_records)
+        self.set_records(ordered_records, self.document)
         self.set_status(f"Saved reordered file to {destination_path}.")

@@ -1,7 +1,7 @@
-CTV-PRVUrethra
-1,1,1,1,1
 Prostate
-1,2,1.027854,1,2
+1,2,1.027854,1,1
+CTV-PRVUrethra
+1,1,1,1,2
 SeminalVes_Prox
 1,1,1.0262281295425049,1,3
 Bladder
