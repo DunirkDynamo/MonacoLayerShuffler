@@ -188,7 +188,7 @@ from monaco_shuffler.core import (
     render_structure_document,
 )
 
-document = load_structure_file(Path(r"C:\GitHub\MonacoDatabase\1~12345678\plan\Hip Plan\plan.txt"))
+document = load_structure_file(Path(r"\\10.244.182.58\FocalData\Installation\TrainingClinic\1~12345678\plan\Hip Plan\plan.txt"))
 preview = build_preview_order(document.records, [2, 1, 3, 4])
 updated_text = render_structure_document(document, preview)
 
@@ -217,7 +217,7 @@ app.exec()</code></pre>
 
 from monaco_shuffler.core import resolve_mrn_folder, resolve_plan_file
 
-mrn_folder = resolve_mrn_folder("12345678", Path(r"C:\GitHub\MonacoDatabase"))
+mrn_folder = resolve_mrn_folder("12345678", Path(r"\\10.244.182.58\FocalData\Installation\TrainingClinic"))
 try:
     plan_file = resolve_plan_file(mrn_folder, "Hip Plan")
 except ValueError as exc:

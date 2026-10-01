@@ -11,7 +11,7 @@ import csv
 from typing import Sequence, cast
 
 
-DATABASE_ROOT = Path(r"C:\GitHub\MonacoDatabase")
+DATABASE_ROOT = Path(r"\\10.244.182.58\FocalData\Installation\TrainingClinic")
 PLAN_FILE_NAMES = ("plan", "plan.txt")
 
 
