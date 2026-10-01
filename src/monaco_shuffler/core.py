@@ -12,7 +12,7 @@ from typing import Sequence, cast
 
 
 DATABASE_ROOT = Path(r"C:\GitHub\MonacoDatabase")
-PLAN_FILE_NAME = "plan"
+PLAN_FILE_NAMES = ("plan", "plan.txt")
 
 
 class StructuresNotFoundError(ValueError):
@@ -256,20 +256,32 @@ def resolve_plan_file(mrn_folder: Path, plan_name: str) -> Path:
     if not normalized_plan_name:
         raise ValueError("The plan name cannot be empty.")
 
+    plans_folder = mrn_folder / "plan"
+    if not plans_folder.is_dir():
+        raise ValueError("No plans available")
+
     matching_plan_folder = None
-    for child in mrn_folder.iterdir():
+    for child in plans_folder.iterdir():
         if child.is_dir() and child.name.casefold() == normalized_plan_name.casefold():
             matching_plan_folder = child
             break
 
     if matching_plan_folder is None:
         raise ValueError(
-            f'No plan named "{normalized_plan_name}" was found under {mrn_folder}.'
+            f'No plan named "{normalized_plan_name}" was found under {plans_folder}.'
         )
 
-    plan_file = matching_plan_folder / PLAN_FILE_NAME
-    if not plan_file.is_file():
-        raise ValueError(f'The file "{PLAN_FILE_NAME}" was not found in {matching_plan_folder}.')
+    plan_file = None
+    for plan_file_name in PLAN_FILE_NAMES:
+        candidate_plan_file = matching_plan_folder / plan_file_name
+        if candidate_plan_file.is_file():
+            plan_file = candidate_plan_file
+            break
+
+    if plan_file is None:
+        raise ValueError(
+            f'The file "plan" or "plan.txt" was not found in {matching_plan_folder}.'
+        )
 
     return plan_file
 
