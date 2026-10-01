@@ -18,6 +18,9 @@ def main(argv=None) -> None:
 
     Args:
         argv: Optional argument list for testing or embedding.
+
+    The command-line entry point intentionally does not load a file itself;
+    the GUI handles plan selection after the main window opens.
     """
 
     parser = ArgumentParser(description="Preview Monaco layer reorderings.")

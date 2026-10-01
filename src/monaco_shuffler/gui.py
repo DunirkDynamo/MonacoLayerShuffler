@@ -38,7 +38,11 @@ from .core import (
 
 
 class GlassCard(QFrame):
-    """Rounded translucent panel used throughout the UI."""
+    """Rounded translucent panel used throughout the UI.
+
+    The card is a thin visual wrapper around ``QFrame`` that adds the shadow
+    and transparency used by the app's layered layout.
+    """
 
     def __init__(self, parent=None, tone="neutral") -> None:
         super().__init__(parent)
@@ -54,7 +58,12 @@ class GlassCard(QFrame):
 
 
 class RowWidget(QFrame):
-    """One structure row in the reorder table."""
+    """One structure row in the reorder table.
+
+    Each row mirrors one parsed structure record and exposes the original
+    layer, the structure name, the editable target layer, and the preview slot
+    used after confirmation.
+    """
 
     def __init__(self, record, layer_count, row_index=0, parent=None) -> None:
         super().__init__(parent)
@@ -88,24 +97,42 @@ class RowWidget(QFrame):
         layout.addWidget(self.preview_label, 0, 3)
 
     def selected_target(self):
-        """Return the selected destination layer as an integer."""
+        """Return the selected destination layer as an integer.
+
+        Returns:
+            The layer number currently selected in the combo box.
+        """
 
         return int(self.combo.currentText())
 
     def reset(self):
-        """Restore the combo box to the original layer index."""
+        """Restore the combo box to the original layer index.
+
+        The preview label is cleared at the same time so the row returns to its
+        pre-confirmation appearance.
+        """
 
         self.combo.setCurrentText(str(self.record.original_layer))
         self.preview_label.setText("")
 
     def set_preview(self, text):
-        """Set the preview label text for this row."""
+        """Set the preview label text for this row.
+
+        Args:
+            text: The label to display in the preview column.
+        """
 
         self.preview_label.setText(text)
 
 
 class MonacoShufflerApp(QMainWindow):
-    """Main application window."""
+    """Main application window.
+
+    The window owns the load prompt, the structure table, the reorder preview,
+    and the save confirmation flow. It keeps the current document state in
+    memory so the user can confirm, reset, and save changes without leaving
+    the GUI.
+    """
 
     def __init__(self, initial_records=None, source_path=None, initial_document=None) -> None:
         super().__init__()
@@ -125,6 +152,7 @@ class MonacoShufflerApp(QMainWindow):
             self.set_records(initial_records, initial_document)
 
     def _build_ui(self):
+        """Build the main window layout and wire up the interactive controls."""
         central = QWidget()
         central.setObjectName("CentralShell")
         self.setCentralWidget(central)
@@ -206,6 +234,7 @@ class MonacoShufflerApp(QMainWindow):
         root.addWidget(self.status_label)
 
     def _apply_theme(self):
+        """Apply the palette and style sheet used by the application chrome."""
         app = QApplication.instance()
         if app is None:
             return
@@ -357,18 +386,31 @@ class MonacoShufflerApp(QMainWindow):
         self.apply_button.setObjectName("PrimaryButton")
 
     def format_source_label(self):
+        """Return the label shown in the title area for the loaded plan.
+
+        The label intentionally hides the filesystem path and only shows the
+        MRN/plan identifiers the user chose.
+        """
         if self.current_mrn is None or self.current_plan_name is None:
             return "No plan loaded"
 
         return f"MRN {self.current_mrn} / Plan {self.current_plan_name}"
 
     def set_status(self, text):
+        """Set the status text shown below the main content area."""
         self.status_label.setText(text)
 
     def set_source_label(self, text):
+        """Set the summary label for the loaded plan."""
         self.file_label.setText(text)
 
     def set_records(self, records, document=None):
+        """Replace the visible records and rebuild the table.
+
+        Args:
+            records: Parsed structures to display.
+            document: Parsed document that should be reused for saving.
+        """
         self.records = list(records)
         self.document = document
         self.set_source_label(self.format_source_label())
@@ -376,6 +418,7 @@ class MonacoShufflerApp(QMainWindow):
         self._rebuild_table()
 
     def _clear_layout(self, layout):
+        """Delete all widgets from a layout without destroying the layout itself."""
         while layout.count():
             item = layout.takeAt(0)
             widget = item.widget()
@@ -383,6 +426,7 @@ class MonacoShufflerApp(QMainWindow):
                 widget.deleteLater()
 
     def _rebuild_table(self):
+        """Recreate the scrollable structure table from the current records."""
         self._clear_layout(self.rows_layout)
         self.row_widgets = []
 
@@ -403,6 +447,7 @@ class MonacoShufflerApp(QMainWindow):
         self.rows_layout.addStretch(1)
 
     def _prompt_for_mrn(self):
+        """Prompt the user for a valid MRN and keep asking until it checks out."""
         while True:
             mrn_text, accepted = QInputDialog.getText(
                 self,
@@ -418,6 +463,7 @@ class MonacoShufflerApp(QMainWindow):
                 QMessageBox.warning(self, "Invalid MRN", str(exc))
 
     def _prompt_for_plan_name(self, mrn_folder):
+        """Prompt the user for a plan name and resolve the matching plan file."""
         while True:
             plan_name, accepted = QInputDialog.getText(
                 self,
@@ -438,6 +484,12 @@ class MonacoShufflerApp(QMainWindow):
                 QMessageBox.warning(self, "Plan not found", str(exc))
 
     def load_plan_from_database(self):
+        """Run the MRN/plan selection flow and load the selected document.
+
+        Returns:
+            ``True`` when a valid plan was loaded, otherwise ``False`` if the
+            user cancels or an unrecoverable load error occurs.
+        """
         while True:
             mrn = self._prompt_for_mrn()
             if mrn is None:
@@ -472,9 +524,11 @@ class MonacoShufflerApp(QMainWindow):
         return True
 
     def _selected_targets(self):
+        """Return the currently selected target layers from the visible rows."""
         return [row.selected_target() for row in self.row_widgets]
 
     def confirm_reorder(self):
+        """Validate the selected targets and display the preview order."""
         try:
             preview_records = build_preview_order(self.records, self._selected_targets())
         except ValueError as exc:
@@ -487,12 +541,14 @@ class MonacoShufflerApp(QMainWindow):
         self.set_status("Preview updated. Use Apply Reorder when you are ready to save.")
 
     def reset_values(self):
+        """Restore every row to its original layer selection."""
         for row_widget in self.row_widgets:
             row_widget.reset()
 
         self.set_status("Dropdowns reset to the original file order.")
 
     def apply_reorder(self):
+        """Write the reordered structure block back to the loaded plan file."""
         if not self.records or self.source_path is None or self.document is None:
             QMessageBox.information(self, "Nothing to apply", "Load a plan before applying a reorder.")
             return

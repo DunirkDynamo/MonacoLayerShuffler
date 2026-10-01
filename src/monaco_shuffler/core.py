@@ -16,7 +16,12 @@ PLAN_FILE_NAMES = ("plan", "plan.txt")
 
 
 class StructuresNotFoundError(ValueError):
-    """Raised when no valid structure list can be found in the input text."""
+    """Raised when no valid Monaco structure block can be found.
+
+    The parser scans the full input looking for a block that matches the
+    expected structure-list shape. When no block satisfies the validation
+    rules, callers should treat the file as incompatible with this tool.
+    """
 
 
 @dataclass(frozen=True)
@@ -28,6 +33,9 @@ class StructureRecord:
         original_layer: One-based layer index from the source file.
         layer_fields: Raw comma-separated fields for the layer row, with the
             final field representing the layer index.
+
+    The record keeps the original CSV fields so save operations can preserve
+    the file's existing structure while updating the layer number in place.
     """
 
     name: str
@@ -44,6 +52,9 @@ class StructureDocument:
         source_lines: The full original file split into newline-preserving lines.
         block_start: Zero-based index of the count line that starts the block.
         block_end: Zero-based index of the final line in the block.
+
+    The document object carries enough information to rewrite only the matched
+    structure block while leaving unrelated file content untouched.
     """
 
     records: tuple[StructureRecord, ...]
@@ -221,13 +232,32 @@ def _extract_structure_document(text: str) -> StructureDocument:
 
 
 def load_structure_file(file_path: Path) -> StructureDocument:
-    """Load and parse a Monaco-style structure file."""
+    """Load and parse a Monaco-style structure file.
+
+    Args:
+        file_path: Path to the plan file selected by the GUI.
+
+    Returns:
+        A parsed document with the extracted structure rows and original file
+        text preserved for later rewrites.
+    """
 
     return _extract_structure_document(file_path.read_text(encoding="utf-8"))
 
 
 def normalize_mrn(mrn_text: str) -> str:
-    """Validate and normalize an MRN entered by the user."""
+    """Validate and normalize an MRN entered by the user.
+
+    Args:
+        mrn_text: Text typed by the user in the MRN prompt.
+
+    Returns:
+        The stripped eight-digit MRN.
+
+    Raises:
+        ValueError: If the value is empty, contains non-digits, or is not
+            exactly eight characters long.
+    """
 
     normalized_mrn = mrn_text.strip()
     if len(normalized_mrn) != 8 or not normalized_mrn.isdigit():
@@ -237,7 +267,18 @@ def normalize_mrn(mrn_text: str) -> str:
 
 
 def resolve_mrn_folder(mrn_text: str, database_root: Path = DATABASE_ROOT) -> Path:
-    """Resolve the database folder that corresponds to an MRN."""
+    """Resolve the database folder that corresponds to an MRN.
+
+    Args:
+        mrn_text: User-entered MRN text.
+        database_root: Root folder that contains the numbered MRN folders.
+
+    Returns:
+        The resolved ``1~<MRN>`` folder.
+
+    Raises:
+        ValueError: If the MRN is malformed or the folder does not exist.
+    """
 
     normalized_mrn = normalize_mrn(mrn_text)
     mrn_folder = database_root / f"1~{normalized_mrn}"
@@ -250,7 +291,11 @@ def resolve_mrn_folder(mrn_text: str, database_root: Path = DATABASE_ROOT) -> Pa
 
 
 def resolve_plan_file(mrn_folder: Path, plan_name: str) -> Path:
-    """Resolve the plan file inside an MRN folder by matching the plan folder name."""
+    """Resolve the plan file inside an MRN folder by matching the plan folder name.
+
+    The lookup expects the folder structure ``1~<MRN>/plan/<plan name>/plan``
+    or ``1~<MRN>/plan/<plan name>/plan.txt``.
+    """
 
     normalized_plan_name = plan_name.strip()
     if not normalized_plan_name:
@@ -287,7 +332,11 @@ def resolve_plan_file(mrn_folder: Path, plan_name: str) -> Path:
 
 
 def default_target_layers(records: Sequence[StructureRecord]) -> list[int]:
-    """Return the default dropdown values for a fresh file load."""
+    """Return the default dropdown values for a fresh file load.
+
+    The UI uses these values to seed each combo box with the current layer
+    ordering.
+    """
 
     return [record.original_layer for record in records]
 
@@ -295,7 +344,11 @@ def default_target_layers(records: Sequence[StructureRecord]) -> list[int]:
 def build_preview_order(
     records: Sequence[StructureRecord], target_layers: Sequence[int]
 ) -> list[StructureRecord]:
-    """Build the reordered preview order from dropdown selections."""
+    """Build the reordered preview order from dropdown selections.
+
+    This does not mutate the source records. It returns a new list ordered by
+    the target layer numbers so the GUI can show the preview before saving.
+    """
 
     if len(records) != len(target_layers):
         raise ValueError("The number of selected layers does not match the file.")
@@ -358,7 +411,11 @@ def _serialize_structure_block(
 def render_structure_document(
     document: StructureDocument, records: Sequence[StructureRecord]
 ) -> str:
-    """Render the full file text with the updated structure block in place."""
+    """Render the full file text with the updated structure block in place.
+
+    The serializer preserves the untouched file text around the matched block
+    and only replaces the structure section.
+    """
 
     updated_lines = list(document.source_lines)
     updated_lines[document.block_start : document.block_end + 1] = _serialize_structure_block(
@@ -368,7 +425,10 @@ def render_structure_document(
 
 
 def reindex_structure_records(records: Sequence[StructureRecord]) -> list[StructureRecord]:
-    """Return a copy of the records renumbered to match their current order."""
+    """Return a copy of the records renumbered to match their current order.
+
+    Useful when a reordered preview should become the new persisted order.
+    """
 
     return [
         StructureRecord(
@@ -383,7 +443,11 @@ def reindex_structure_records(records: Sequence[StructureRecord]) -> list[Struct
 def apply_target_layers(
     records: Sequence[StructureRecord], target_layers: Sequence[int]
 ) -> list[StructureRecord]:
-    """Apply the selected destination layer to each record without reordering."""
+    """Apply the selected destination layer to each record without reordering.
+
+    This preserves the visual row order but updates each record's layer value
+    so later serialization can write the chosen destination numbers back out.
+    """
 
     if len(records) != len(target_layers):
         raise ValueError("The number of selected layers does not match the file.")
@@ -399,7 +463,11 @@ def apply_target_layers(
 
 
 def write_structure_file(file_path: Path, records: Sequence[StructureRecord]) -> None:
-    """Legacy helper retained for compatibility with older call sites."""
+    """Legacy helper retained for compatibility with older call sites.
+
+    It writes only the structure rows and is kept for backward compatibility.
+    The current GUI prefers :func:`write_structure_document`.
+    """
 
     lines: list[str] = []
     for record in records:
@@ -411,6 +479,12 @@ def write_structure_file(file_path: Path, records: Sequence[StructureRecord]) ->
 def write_structure_document(
     file_path: Path, document: StructureDocument, records: Sequence[StructureRecord]
 ) -> None:
-    """Write the updated structure block back into the original file text."""
+    """Write the updated structure block back into the original file text.
+
+    Args:
+        file_path: Destination path that should receive the rewritten plan.
+        document: Parsed document that still contains the original file text.
+        records: Updated records in the order they should be written.
+    """
 
     file_path.write_text(render_structure_document(document, records), encoding="utf-8")

@@ -53,8 +53,9 @@ you can launch the app with:
 python -m monaco_shuffler.main
 ```
 
-The app prompts for an 8-digit MRN and a plan name, then resolves the matching
-plan file from the configured database path in code.
+The app opens directly to the main window. Use the Open button to enter an
+8-digit MRN and a plan name, then resolve the matching plan file from the
+configured database path in code.
 
 To print the current tagged version from the command line:
 

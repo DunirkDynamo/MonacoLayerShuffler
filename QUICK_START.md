@@ -57,8 +57,9 @@ If you installed the package in editable mode, launch the GUI with:
 python -m monaco_shuffler.main
 ```
 
-The app prompts for an 8-digit MRN and a plan name, then resolves the matching
-plan file from the configured database path in code.
+The app opens directly to the main window. Use the Open button to enter an
+8-digit MRN and a plan name, then resolve the matching plan file from the
+configured database path in code. It does not open a file browser.
 
 You can also print the current version:
 
@@ -68,6 +69,7 @@ python -m monaco_shuffler.main --version
 
 ## Use the GUI
 
+- Click `Open` to load a plan through the MRN/plan prompts.
 - Each row shows the original layer number and structure name.
 - Use the dropdown beside a structure to choose its new destination layer.
 - Click `Confirm Reorder` to preview the reordered result in the rightmost column.
